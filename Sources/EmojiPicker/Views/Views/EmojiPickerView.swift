@@ -33,6 +33,21 @@ protocol EmojiPickerViewDelegate: AnyObject {
 final class EmojiPickerView: UIView {
     
     // MARK: - Private properties
+    
+    public let searchField: UITextField = {
+        let textField = UITextField()
+        let image = UIImage(systemName: "magnifyingglass")?.withAlignmentRectInsets(UIEdgeInsets(top: 0, left: -4, bottom: 0, right: -4))
+        let imageView = UIImageView(image: image)
+        textField.leftView = imageView
+        
+        textField.leftViewMode = .always
+        textField.translatesAutoresizingMaskIntoConstraints = false
+        textField.clearButtonMode = .whileEditing
+        textField.borderStyle = .roundedRect
+        textField.placeholder = "Search"
+        return textField
+    }()
+    
     private let separatorView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -58,13 +73,32 @@ final class EmojiPickerView: UIView {
     
     // MARK: - Public properties
     public let collectionView: UICollectionView = {
-        let layout: UICollectionViewFlowLayout = UICollectionViewFlowLayout()
-        layout.sectionHeadersPinToVisibleBounds = true
+//        let layout: UICollectionViewFlowLayout = UICollectionViewFlowLayout()
+//        layout.sectionHeadersPinToVisibleBounds = true
+        
+        let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1/8), heightDimension: .fractionalWidth(1/8))
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+        
+        let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(50))
+        let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+        
+        let section = NSCollectionLayoutSection(group: group)
+        section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+        let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(40))
+        let header = NSCollectionLayoutBoundarySupplementaryItem(layoutSize: headerSize, elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)
+        header.pinToVisibleBounds = true
+        
+        section.boundarySupplementaryItems = [header]
+        
+        let layout = UICollectionViewCompositionalLayout(section: section)
+        
+        
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        collectionView.verticalScrollIndicatorInsets.top = 8
-        collectionView.contentInset = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
-        collectionView.backgroundColor = .clear
         collectionView.translatesAutoresizingMaskIntoConstraints = false
+
+//        collectionView.verticalScrollIndicatorInsets.top = 8
+//        collectionView.contentInset = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
+        collectionView.backgroundColor = .clear
         collectionView.register(EmojiCollectionViewCell.self, forCellWithReuseIdentifier: EmojiCollectionViewCell.identifier)
         collectionView.register(EmojiCollectionViewHeader.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: EmojiCollectionViewHeader.identifier)
         return collectionView
@@ -72,7 +106,7 @@ final class EmojiPickerView: UIView {
     
     public weak var delegate: EmojiPickerViewDelegate?
     
-    public var selectedEmojiCategoryTintColor: UIColor = .systemBlue
+    public var selectedEmojiCategoryTintColor: UIColor = .systemIndigo
     
     // MARK: - Init
     init() {
@@ -103,21 +137,26 @@ final class EmojiPickerView: UIView {
     
     // MARK: - Private methods
     private func setupView() {
-        backgroundColor = .popoverBackgroundColor
+        backgroundColor = .systemGroupedBackground
         
+//        addSubview(searchField)
         addSubview(collectionView)
         addSubview(categoriesStackView)
         addSubview(separatorView)
         
         NSLayoutConstraint.activate([
+//            searchField.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 8),
+//            searchField.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -8),
+//            searchField.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: 8),
+//
             collectionView.leadingAnchor.constraint(equalTo: leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            collectionView.topAnchor.constraint(equalTo: topAnchor, constant: safeAreaInsets.top),
+            collectionView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: 8),
             collectionView.bottomAnchor.constraint(equalTo: separatorView.topAnchor),
             
-            categoriesStackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            categoriesStackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            categoriesStackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -safeAreaInsets.bottom),
+            categoriesStackView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            categoriesStackView.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            categoriesStackView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
             categoriesStackView.heightAnchor.constraint(equalToConstant: categoriesStackViewHeight),
             
             separatorView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -149,7 +188,7 @@ final class EmojiPickerView: UIView {
         guard let cellFrame = collectionView.collectionViewLayout.layoutAttributesForItem(at: IndexPath(item: 0, section: section))?.frame,
               let headerFrame = collectionView.collectionViewLayout.layoutAttributesForSupplementaryView(ofKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: section))?.frame
         else { return }
-        collectionView.setContentOffset(CGPoint(x:  -collectionView.contentInset.left, y: cellFrame.minY - headerFrame.height), animated: false)
+        collectionView.setContentOffset(CGPoint(x:  -collectionView.contentInset.left, y: cellFrame.minY - headerFrame.height), animated: true)
     }
 }
 

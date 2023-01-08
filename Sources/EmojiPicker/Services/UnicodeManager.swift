@@ -24,11 +24,51 @@ import UIKit
 /// The protocol is necessary to hide unnecessary methods with Unicode categories in UnicodeManager
 protocol UnicodeManagerProtocol {
     /// Returns relevant emojis for the current iOS version
-    func getEmojisForCurrentIOSVersion() -> [EmojiCategory]
+
+    var categories: [String] { get }
+    var emojis: [Emoji] { get }
+    func getEmojisForCurrentIOSVersion() -> [Emoji]
+}
+
+final class EmojiJSONManager: UnicodeManagerProtocol {
+    
+    let categories: [String]
+    let emojis: [Emoji]
+    
+    init() {
+        guard let fileUrl = Bundle.module.url(forResource: "emoji", withExtension: "json"),
+              let data = try? Data(contentsOf: fileUrl) else {
+            self.categories = []
+            self.emojis = []
+            return
+        }
+        
+        self.emojis = (try? JSONDecoder().decode([Emoji].self, from: data)) ?? []
+        self.categories = Array(self.emojis.reduce([String](), { partialResult, emoji in
+            let category = emoji.group
+            var categories = partialResult
+            guard !categories.contains(category) else {
+                return categories
+            }
+            categories.append(category)
+            return categories
+        }))
+    }
+    
+    func getEmojisForCurrentIOSVersion() -> [Emoji] {
+        return emojis
+    }
 }
 
 /// The class is responsible for getting a relevant set of emojis for iOS version
 final class UnicodeManager: UnicodeManagerProtocol {
+    var emojis: [Emoji] {
+        return getEmojisForCurrentIOSVersion()
+    }
+    
+    var categories: [String] {
+        return EmojiCategoryType.allCases.map({ getEmojiCategoryTitle(for: $0) })
+    }
     
     private var currentVersion: Float {
         return (UIDevice.current.systemVersion as NSString).floatValue
@@ -36,20 +76,44 @@ final class UnicodeManager: UnicodeManagerProtocol {
     
     /// Gets version of iOS for current device
     /// - Returns: Array of emoji categories (and array of emojis inside them)
-    public func getEmojisForCurrentIOSVersion() -> [EmojiCategory] {
+    public func getEmojisForCurrentIOSVersion() -> [Emoji] {
         switch currentVersion {
         case 12.1...13.1:
-            return unicode11
+            return unicode11.flatMap { category in
+                category.emojis.map { ints in
+                    return Emoji(codes: "", char: ints.emoji(), name: "", category: "", group: category.categoryName, subgroup: "")
+                }
+            }
         case 13.2...14.1:
-            return unicode12
+            return unicode12.flatMap { category in
+                category.emojis.map { ints in
+                    return Emoji(codes: "", char: ints.emoji(), name: "", category: "", group: category.categoryName, subgroup: "")
+                }
+            }
         case 14.2...14.4:
-            return unicode13
+            return unicode13.flatMap { category in
+                category.emojis.map { ints in
+                    return Emoji(codes: "", char: ints.emoji(), name: "", category: "", group: category.categoryName, subgroup: "")
+                }
+            }
         case 14.5...15.3:
-            return unicode13v1
+            return unicode13v1.flatMap { category in
+                category.emojis.map { ints in
+                    return Emoji(codes: "", char: ints.emoji(), name: "", category: "", group: category.categoryName, subgroup: "")
+                }
+            }
         case 15.4...:
-            return unicode14
+            return unicode14.flatMap { category in
+                category.emojis.map { ints in
+                    return Emoji(codes: "", char: ints.emoji(), name: "", category: "", group: category.categoryName, subgroup: "")
+                }
+            }
         default:
-            return unicode5
+            return unicode5.flatMap { category in
+                category.emojis.map { ints in
+                    return Emoji(codes: "", char: ints.emoji(), name: "", category: "", group: category.categoryName, subgroup: "")
+                }
+            }
         }
     }
     

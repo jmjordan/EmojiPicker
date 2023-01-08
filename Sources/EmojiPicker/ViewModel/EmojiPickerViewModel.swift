@@ -35,34 +35,50 @@ protocol EmojiPickerViewModelProtocol {
     func emoji(at indexPath: IndexPath) -> String
     /// The method is responsible for getting the localized name of the emoji section
     func sectionHeaderViewModel(for section: Int) -> String
+    
+    func emojis(for category: String) -> [Emoji]
+    
+    var categories: [String] { get }
 }
 
 /// ViewModel which using in EmojiPickerViewController
 final class EmojiPickerViewModel: EmojiPickerViewModelProtocol {
+    func emojis(for category: String) -> [Emoji] {
+        return emojis.filter({ $0.group == category })
+    }
+    
     
     public var selectedEmoji = Observable<String>(value: "")
     public var selectedEmojiCategoryIndex = Observable<Int>(value: 0)
     
     /// All emoji categories
-    private var emojiCategories = [EmojiCategory]()
+    private let emojis: [Emoji]
+    internal var categories: [String]
     
     init(unicodeManager: UnicodeManagerProtocol = UnicodeManager()) {
-        emojiCategories = unicodeManager.getEmojisForCurrentIOSVersion()
+        self.emojis = unicodeManager.emojis
+        self.categories = unicodeManager.categories
     }
     
     public func numberOfSections() -> Int {
-        return emojiCategories.count
+        return categories.count
     }
     
     public func numberOfItems(in section: Int) -> Int {
-        return emojiCategories[section].emojis.count
+        let category = categories[section]
+        let emojis = emojis.filter({ $0.group == category })
+        return emojis.count
     }
     
+    
+    
     public func emoji(at indexPath: IndexPath) -> String {
-        return emojiCategories[indexPath.section].emojis[indexPath.row].emoji()
+        let category = categories[indexPath.section]
+        let emojis = emojis.filter({ $0.group == category })
+        return emojis[indexPath.row].char
     }
     
     public func sectionHeaderViewModel(for section: Int) -> String {
-        return emojiCategories[section].categoryName
+        return categories[section].uppercased()
     }
 }

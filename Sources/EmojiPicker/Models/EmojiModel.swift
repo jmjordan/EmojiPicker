@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 /// Describes types of emoji categories
-public enum EmojiCategoryType: Int {
+public enum EmojiCategoryType: Int, CaseIterable {
     case people
     case nature
     case foodAndDrink
@@ -29,6 +29,24 @@ public enum EmojiCategoryType: Int {
     case objects
     case symbols
     case flags
+}
+
+//{
+//    "codes": "1F3F4 E0067 E0062 E0077 E006C E0073 E007F",
+//    "char": "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
+//    "name": "flag: Wales",
+//    "category": "Flags (subdivision-flag)",
+//    "group": "Flags",
+//    "subgroup": "subdivision-flag"
+//  }
+
+public struct Emoji: Codable {
+    let codes: String
+    let char: String
+    let name: String
+    let category: String
+    let group: String
+    let subgroup: String
 }
 
 /// Describes emoji categories

@@ -99,12 +99,14 @@ final class EmojiPickerViewController: UIViewController {
     private let emojiPickerView = EmojiPickerView()
     private var generator: UIImpactFeedbackGenerator? = UIImpactFeedbackGenerator(style: .light)
     private var viewModel: EmojiPickerViewModelProtocol
+    private var dataSource: UICollectionViewDiffableDataSource<String, String>!
     
     init(viewModel: EmojiPickerViewModelProtocol = EmojiPickerViewModel()) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
         setupPopoverPresentationStyle()
         setupDelegates()
+        setupDataSource()
         bindViewModel()
     }
     
@@ -122,6 +124,16 @@ final class EmojiPickerViewController: UIViewController {
         setupPreferredContentSize()
         setupArrowDirections()
         setupHorizontalInset()
+        
+        view.backgroundColor = .systemGroupedBackground
+        
+        var snapshot = NSDiffableDataSourceSnapshot<String, String>()
+        for category in viewModel.categories {
+            snapshot.appendSections([category])
+            snapshot.appendItems(viewModel.emojis(for: category).map({ $0.char }))
+        }
+        dataSource.apply(snapshot)
+        
     }
     
     // MARK: - Private methods
@@ -138,10 +150,31 @@ final class EmojiPickerViewController: UIViewController {
         }
     }
     
+    private func setupDataSource() {
+        
+        let cellRegistration = UICollectionView.CellRegistration<EmojiCollectionViewCell, String> { cell, indexPath, item in
+            cell.emoji = item
+        }
+        
+        let headerRegistration = UICollectionView.SupplementaryRegistration<EmojiCollectionViewHeader>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] supplementaryView, elementKind, indexPath in
+            supplementaryView.categoryName = self?.viewModel.sectionHeaderViewModel(for: indexPath.section) ?? ""
+        }
+        
+        dataSource = UICollectionViewDiffableDataSource(collectionView: emojiPickerView.collectionView, cellProvider: { collectionView, indexPath, itemIdentifier in
+            return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: itemIdentifier)
+        })
+        
+        dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
+            return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
+            
+        }
+    }
+    
     private func setupDelegates() {
         emojiPickerView.delegate = self
         emojiPickerView.collectionView.delegate = self
-        emojiPickerView.collectionView.dataSource = self
+        emojiPickerView.searchField.delegate = self
+//        emojiPickerView.collectionView.dataSource = self
         presentationController?.delegate = self
     }
     
@@ -150,9 +183,9 @@ final class EmojiPickerViewController: UIViewController {
     }
     
     private func setupPreferredContentSize() {
-        let sideInset: CGFloat = 20
+        let sideInset: CGFloat = 10
         let screenWidth: CGFloat = UIScreen.main.nativeBounds.width / UIScreen.main.nativeScale
-        let popoverWidth: CGFloat = screenWidth - (sideInset * 2)
+        let popoverWidth: CGFloat = min(screenWidth - (sideInset * 2), 400)
         // The number 0.16 was taken based on the proportion of height to the width of the EmojiPicker on MacOS.
         let heightProportionToWidth: CGFloat = 1.16
         preferredContentSize = CGSize(
@@ -162,16 +195,14 @@ final class EmojiPickerViewController: UIViewController {
     }
     
     private func setupArrowDirections() {
-        popoverPresentationController?.permittedArrowDirections = UIPopoverArrowDirection(
-            rawValue: arrowDirection.rawValue
-        )
+        popoverPresentationController?.permittedArrowDirections = [.any]
     }
     
     private func setupHorizontalInset() {
         guard let sourceView = sourceView else { return }
         popoverPresentationController?.sourceRect = CGRect(
             x: 0,
-            y: popoverPresentationController?.permittedArrowDirections == .up ? horizontalInset : -horizontalInset,
+            y: 0,
             width: sourceView.frame.width,
             height: sourceView.frame.height
         )
@@ -257,5 +288,16 @@ extension EmojiPickerViewController: EmojiPickerViewDelegate {
 extension EmojiPickerViewController: UIAdaptivePresentationControllerDelegate {
     func adaptivePresentationStyle(for controller: UIPresentationController, traitCollection: UITraitCollection) -> UIModalPresentationStyle {
         return .none
+    }
+}
+
+extension EmojiPickerViewController: UITextFieldDelegate {
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        if let oldString = textField.text {
+            let newString = oldString.replacingCharacters(in: Range(range, in: oldString)!,
+                                                              with: string)
+            print("search for \(newString)")
+        }
+        return true
     }
 }
