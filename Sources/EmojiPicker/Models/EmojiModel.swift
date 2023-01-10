@@ -41,16 +41,19 @@ public enum EmojiCategoryType: Int, CaseIterable {
 //  }
 
 public struct Emoji: Codable {
-    let codes: String
-    let char: String
+    let emoji: String
     let name: String
-    let category: String
-    let group: String
-    let subgroup: String
+    let unicodeVersion: String
+    
+    enum CodingKeys: String, CodingKey {
+        case emoji
+        case name
+        case unicodeVersion = "unicode_version"
+    }
 }
 
 /// Describes emoji categories
-public struct EmojiCategory {
-    var categoryName: String
-    var emojis: [[Int]]
+public struct EmojiCategory: Codable {
+    var name: String
+    var emojis: [Emoji]
 }

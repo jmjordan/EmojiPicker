@@ -20,65 +20,64 @@
 // SOFTWARE.
 
 import Foundation
+import Combine
+import UIKit
 
 /// Protocol for the ViewModel which using in EmojiPickerViewController
 protocol EmojiPickerViewModelProtocol {
     /// The observed variable that is responsible for the choice of emoji
     var selectedEmoji: Observable<String> { get set }
+    
     /// The observed variable that is responsible for the choice of emoji category
     var selectedEmojiCategoryIndex: Observable<Int> { get set }
-    /// The method returns the number of categories with emojis
-    func numberOfSections() -> Int
-    /// The method returns the number of emojis in the target section
-    func numberOfItems(in section: Int) -> Int
-    /// This method is responsible for getting the emoji for the target indexPath
-    func emoji(at indexPath: IndexPath) -> String
-    /// The method is responsible for getting the localized name of the emoji section
-    func sectionHeaderViewModel(for section: Int) -> String
     
-    func emojis(for category: String) -> [Emoji]
+    var snapshotPublisher: Published<NSDiffableDataSourceSnapshot<String, String>>.Publisher { get }
     
-    var categories: [String] { get }
+    var search: String? { get set }
 }
 
 /// ViewModel which using in EmojiPickerViewController
 final class EmojiPickerViewModel: EmojiPickerViewModelProtocol {
-    func emojis(for category: String) -> [Emoji] {
-        return emojis.filter({ $0.group == category })
-    }
-    
     
     public var selectedEmoji = Observable<String>(value: "")
     public var selectedEmojiCategoryIndex = Observable<Int>(value: 0)
     
-    /// All emoji categories
-    private let emojis: [Emoji]
-    internal var categories: [String]
+    @Published public var emojiSnapshot: NSDiffableDataSourceSnapshot<String, String>
     
-    init(unicodeManager: UnicodeManagerProtocol = UnicodeManager()) {
-        self.emojis = unicodeManager.emojis
-        self.categories = unicodeManager.categories
+    public var snapshotPublisher: Published<NSDiffableDataSourceSnapshot<String, String>>.Publisher { return $emojiSnapshot }
+    
+    var categories: [EmojiCategory]
+    
+    var search: String? = nil {
+        didSet {
+            guard let search = search, search != "" else { return
+                self.emojiSnapshot  = categories.reduce(NSDiffableDataSourceSnapshot<String, String>(), { partialResult, category in
+                    var result = partialResult
+                    result.appendSections([category.name])
+                    result.appendItems(category.emojis.map { $0.emoji})
+                    return result
+                })
+            }
+            
+            var snapshot = NSDiffableDataSourceSnapshot<String, String>()
+            let emojis = categories.flatMap({ category in
+                return category.emojis.filter({ $0.name.lowercased().contains(search.lowercased()) })
+            }).map({ $0.emoji })
+            snapshot.appendSections([""])
+            snapshot.appendItems(emojis)
+            self.emojiSnapshot = snapshot
+        }
     }
     
-    public func numberOfSections() -> Int {
-        return categories.count
+    init(emojiManager: EmojiManagerProtocol = UnicodeEmojiManager()) {
+        self.categories = emojiManager.categories
+        
+        self.emojiSnapshot = emojiManager.categories.reduce(NSDiffableDataSourceSnapshot<String, String>(), { partialResult, category in
+            var result = partialResult
+            result.appendSections([category.name])
+            result.appendItems(category.emojis.map { $0.emoji})
+            return result
+        })
     }
-    
-    public func numberOfItems(in section: Int) -> Int {
-        let category = categories[section]
-        let emojis = emojis.filter({ $0.group == category })
-        return emojis.count
-    }
-    
-    
-    
-    public func emoji(at indexPath: IndexPath) -> String {
-        let category = categories[indexPath.section]
-        let emojis = emojis.filter({ $0.group == category })
-        return emojis[indexPath.row].char
-    }
-    
-    public func sectionHeaderViewModel(for section: Int) -> String {
-        return categories[section].uppercased()
-    }
+
 }

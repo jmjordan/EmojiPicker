@@ -20,6 +20,7 @@
 // SOFTWARE.
 
 import UIKit
+import Combine
 
 public protocol EmojiPickerDelegate: AnyObject {
     func didGetEmoji(emoji: String)
@@ -101,6 +102,8 @@ final class EmojiPickerViewController: UIViewController {
     private var viewModel: EmojiPickerViewModelProtocol
     private var dataSource: UICollectionViewDiffableDataSource<String, String>!
     
+    var subscriptions = Set<AnyCancellable>()
+    
     init(viewModel: EmojiPickerViewModelProtocol = EmojiPickerViewModel()) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
@@ -127,17 +130,15 @@ final class EmojiPickerViewController: UIViewController {
         
         view.backgroundColor = .systemGroupedBackground
         
-        var snapshot = NSDiffableDataSourceSnapshot<String, String>()
-        for category in viewModel.categories {
-            snapshot.appendSections([category])
-            snapshot.appendItems(viewModel.emojis(for: category).map({ $0.char }))
-        }
-        dataSource.apply(snapshot)
-        
     }
     
     // MARK: - Private methods
     private func bindViewModel() {
+        
+        viewModel.snapshotPublisher.sink { snapshot in
+            self.dataSource.apply(snapshot)
+        }.store(in: &subscriptions)
+        
         viewModel.selectedEmoji.bind { [unowned self] emoji in
             generator?.impactOccurred()
             delegate?.didGetEmoji(emoji: emoji)
@@ -145,6 +146,7 @@ final class EmojiPickerViewController: UIViewController {
                 dismiss(animated: true, completion: nil)
             }
         }
+        
         viewModel.selectedEmojiCategoryIndex.bind { [unowned self] categoryIndex in
             self.emojiPickerView.updateSelectedCategoryIcon(with: categoryIndex)
         }
@@ -157,7 +159,10 @@ final class EmojiPickerViewController: UIViewController {
         }
         
         let headerRegistration = UICollectionView.SupplementaryRegistration<EmojiCollectionViewHeader>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] supplementaryView, elementKind, indexPath in
-            supplementaryView.categoryName = self?.viewModel.sectionHeaderViewModel(for: indexPath.section) ?? ""
+            
+            guard let section = self?.dataSource.sectionIdentifier(for: indexPath.section) else { return }
+            
+            supplementaryView.categoryName = section.uppercased()
         }
         
         dataSource = UICollectionViewDiffableDataSource(collectionView: emojiPickerView.collectionView, cellProvider: { collectionView, indexPath, itemIdentifier in
@@ -166,7 +171,6 @@ final class EmojiPickerViewController: UIViewController {
         
         dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
             return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
-            
         }
     }
     
@@ -174,7 +178,6 @@ final class EmojiPickerViewController: UIViewController {
         emojiPickerView.delegate = self
         emojiPickerView.collectionView.delegate = self
         emojiPickerView.searchField.delegate = self
-//        emojiPickerView.collectionView.dataSource = self
         presentationController?.delegate = self
     }
     
@@ -210,70 +213,29 @@ final class EmojiPickerViewController: UIViewController {
 }
 
 // MARK: - UICollectionViewDataSource, UICollectionViewDelegate
-extension EmojiPickerViewController: UICollectionViewDataSource, UICollectionViewDelegate {
-    func numberOfSections(in collectionView: UICollectionView) -> Int {
-        return viewModel.numberOfSections()
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return viewModel.numberOfItems(in: section)
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: EmojiCollectionViewCell.identifier, for: indexPath) as? EmojiCollectionViewCell
-        else { return UICollectionViewCell() }
-        cell.emoji = viewModel.emoji(at: indexPath)
-        return cell
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
-        guard kind == UICollectionView.elementKindSectionHeader,
-              let sectionHeader = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: EmojiCollectionViewHeader.identifier, for: indexPath) as? EmojiCollectionViewHeader
-        else { return UICollectionReusableView() }
-        sectionHeader.categoryName = viewModel.sectionHeaderViewModel(for: indexPath.section)
-        return sectionHeader
-    }
+extension EmojiPickerViewController: UICollectionViewDelegate {
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
-        viewModel.selectedEmoji.value = viewModel.emoji(at: indexPath)
+        viewModel.selectedEmoji.value = dataSource.itemIdentifier(for: indexPath) ?? ""
     }
 }
 
 // MARK: - UIScrollViewDelegate
 extension EmojiPickerViewController: UIScrollViewDelegate {
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        // Updating the selected category during scrolling
-        let indexPathsForVisibleHeaders = emojiPickerView.collectionView.indexPathsForVisibleSupplementaryElements(
-            ofKind: UICollectionView.elementKindSectionHeader
-        ).sorted(by: { $0.section < $1.section })
-        if let selectedEmojiCategoryIndex = indexPathsForVisibleHeaders.first?.section,
-           viewModel.selectedEmojiCategoryIndex.value != selectedEmojiCategoryIndex {
-            viewModel.selectedEmojiCategoryIndex.value = selectedEmojiCategoryIndex
-        }
-    }
-}
-
-// MARK: - UICollectionViewDelegateFlowLayout
-
-extension EmojiPickerViewController: UICollectionViewDelegateFlowLayout {
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> CGSize {
-        return CGSize(width: collectionView.frame.width, height: 40)
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let sideInsets = collectionView.contentInset.right + collectionView.contentInset.left
-        let contentSize = collectionView.bounds.width - sideInsets
-        return CGSize(width: contentSize / 8, height: contentSize / 8)
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
-        return 0
-    }
-    
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
-        return 0
-    }
+//    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+//        // Updating the selected category during scrolling
+//        let indexPathsForVisibleHeaders = emojiPickerView.collectionView.indexPathsForVisibleSupplementaryElements(
+//            ofKind: UICollectionView.elementKindSectionHeader
+//        ).sorted(by: { $0.section < $1.section })
+//
+//        DispatchQueue.main.sync {
+//            if let selectedEmojiCategoryIndex = indexPathsForVisibleHeaders.first?.section,
+//               viewModel.selectedEmojiCategoryIndex.value != selectedEmojiCategoryIndex {
+//                viewModel.selectedEmojiCategoryIndex.value = selectedEmojiCategoryIndex
+//            }
+//        }
+//    }
 }
 
 // MARK: - EmojiPickerViewDelegate
@@ -291,13 +253,8 @@ extension EmojiPickerViewController: UIAdaptivePresentationControllerDelegate {
     }
 }
 
-extension EmojiPickerViewController: UITextFieldDelegate {
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        if let oldString = textField.text {
-            let newString = oldString.replacingCharacters(in: Range(range, in: oldString)!,
-                                                              with: string)
-            print("search for \(newString)")
-        }
-        return true
+extension EmojiPickerViewController: UISearchBarDelegate {
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        viewModel.search = searchText
     }
 }

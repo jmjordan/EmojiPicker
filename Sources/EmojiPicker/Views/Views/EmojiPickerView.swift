@@ -34,17 +34,12 @@ final class EmojiPickerView: UIView {
     
     // MARK: - Private properties
     
-    public let searchField: UITextField = {
-        let textField = UITextField()
-        let image = UIImage(systemName: "magnifyingglass")?.withAlignmentRectInsets(UIEdgeInsets(top: 0, left: -4, bottom: 0, right: -4))
-        let imageView = UIImageView(image: image)
-        textField.leftView = imageView
+    public let searchField: UISearchBar = {
+        let textField = UISearchBar()
         
-        textField.leftViewMode = .always
         textField.translatesAutoresizingMaskIntoConstraints = false
-        textField.clearButtonMode = .whileEditing
-        textField.borderStyle = .roundedRect
-        textField.placeholder = "Search"
+        textField.searchBarStyle = .minimal
+        textField.placeholder = "Search Emoji"
         return textField
     }()
     
@@ -73,9 +68,6 @@ final class EmojiPickerView: UIView {
     
     // MARK: - Public properties
     public let collectionView: UICollectionView = {
-//        let layout: UICollectionViewFlowLayout = UICollectionViewFlowLayout()
-//        layout.sectionHeadersPinToVisibleBounds = true
-        
         let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1/8), heightDimension: .fractionalWidth(1/8))
         let item = NSCollectionLayoutItem(layoutSize: itemSize)
         
@@ -83,7 +75,7 @@ final class EmojiPickerView: UIView {
         let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
         
         let section = NSCollectionLayoutSection(group: group)
-        section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+        section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8)
         let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(40))
         let header = NSCollectionLayoutBoundarySupplementaryItem(layoutSize: headerSize, elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)
         header.pinToVisibleBounds = true
@@ -92,12 +84,9 @@ final class EmojiPickerView: UIView {
         
         let layout = UICollectionViewCompositionalLayout(section: section)
         
-        
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
 
-//        collectionView.verticalScrollIndicatorInsets.top = 8
-//        collectionView.contentInset = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
         collectionView.backgroundColor = .clear
         collectionView.register(EmojiCollectionViewCell.self, forCellWithReuseIdentifier: EmojiCollectionViewCell.identifier)
         collectionView.register(EmojiCollectionViewHeader.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: EmojiCollectionViewHeader.identifier)
@@ -112,19 +101,14 @@ final class EmojiPickerView: UIView {
     init() {
         super.init(frame: .zero)
         
+        setupView()
+        
         setupCategoryViews()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
-    override func draw(_ rect: CGRect) {
-        super.draw(rect)
-        
-        setupView()
-    }
-    
     /**
      Passes the index of the selected category to all categoryViews to update the state.
      - Parameter categoryIndex: Selected category index.
@@ -139,25 +123,25 @@ final class EmojiPickerView: UIView {
     private func setupView() {
         backgroundColor = .systemGroupedBackground
         
-//        addSubview(searchField)
+        addSubview(searchField)
         addSubview(collectionView)
         addSubview(categoriesStackView)
         addSubview(separatorView)
         
         NSLayoutConstraint.activate([
-//            searchField.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 8),
-//            searchField.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -8),
-//            searchField.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: 8),
-//
+            searchField.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
+            searchField.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
+            searchField.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
+
             collectionView.leadingAnchor.constraint(equalTo: leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            collectionView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: 8),
+            collectionView.topAnchor.constraint(equalTo: searchField.bottomAnchor),
             collectionView.bottomAnchor.constraint(equalTo: separatorView.topAnchor),
             
-            categoriesStackView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            categoriesStackView.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            categoriesStackView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 8),
+            categoriesStackView.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -8),
             categoriesStackView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
-            categoriesStackView.heightAnchor.constraint(equalToConstant: categoriesStackViewHeight),
+            categoriesStackView.heightAnchor.constraint(equalToConstant: 50),
             
             separatorView.leadingAnchor.constraint(equalTo: leadingAnchor),
             separatorView.trailingAnchor.constraint(equalTo: trailingAnchor),
